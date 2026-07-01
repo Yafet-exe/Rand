@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Share Location</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--tg-theme-bg-color, #1c1c1e);
+      color: var(--tg-theme-text-color, #ffffff);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .icon { font-size: 56px; margin-bottom: 16px; }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: var(--tg-theme-text-color, #fff);
+    }
+
+    p {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--tg-theme-hint-color, #aaa);
+      margin-bottom: 28px;
+      max-width: 300px;
+    }
+
+    button {
+      background: var(--tg-theme-button-color, #2ea6ff);
+      color: var(--tg-theme-button-text-color, #fff);
+      border: none;
+      border-radius: 12px;
+      padding: 14px 32px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      max-width: 300px;
+      transition: opacity 0.2s;
+    }
+
+    button:active { opacity: 0.8; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    #status {
+      margin-top: 20px;
+      font-size: 14px;
+      color: var(--tg-theme-hint-color, #aaa);
+      min-height: 40px;
+    }
+
+    .error { color: #ff4444 !important; }
+    .success { color: #44cc66 !important; }
+
+    .steps {
+      text-align: left;
+      background: var(--tg-theme-secondary-bg-color, #2c2c2e);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 24px;
+      max-width: 300px;
+      width: 100%;
+    }
+
+    .steps p {
+      color: var(--tg-theme-text-color, #fff);
+      font-size: 13px;
+      margin-bottom: 0;
+    }
+
+    .step {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      color: var(--tg-theme-text-color, #eee);
+    }
+
+    .step:last-child { margin-bottom: 0; }
+    .step-num { flex-shrink: 0; font-weight: 700; }
+  </style>
+</head>
+<body>
+
+  <div class="icon">📍</div>
+  <h1>Verify Your Location</h1>
+  <p>We need your real GPS location to match you with people nearby.</p>
+
+  <div class="steps">
+    <div class="step">
+      <span class="step-num">1️⃣</span>
+      <span>Make sure Location Services are <strong>ON</strong> in your phone settings</span>
+    </div>
+    <div class="step">
+      <span class="step-num">2️⃣</span>
+      <span>Tap the button below — allow location access when prompted</span>
+    </div>
+    <div class="step">
+      <span class="step-num">3️⃣</span>
+      <span>Your real GPS location will be sent securely to the bot</span>
+    </div>
+  </div>
+
+  <button id="btn" onclick="getLocation()">📍 Share My Real Location</button>
+  <div id="status"></div>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+
+    function setStatus(msg, cls = '') {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = cls;
+    }
+
+    function getLocation() {
+      const btn = document.getElementById('btn');
+
+      if (!navigator.geolocation) {
+        setStatus('❌ Geolocation is not supported by your browser.', 'error');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = '⏳ Getting your location...';
+      setStatus('Waiting for GPS signal...');
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          const acc = position.coords.accuracy; // always present from browser GPS API
+
+          setStatus(`✅ Location found! Accuracy: ~${Math.round(acc)}m`, 'success');
+          btn.textContent = '✅ Sending...';
+
+          // Send data back to the bot via Telegram's WebApp channel.
+          // This arrives as update.message.web_app_data — a separate, unforgeable
+          // update type that can only come from a WebApp button tap.
+          tg.sendData(JSON.stringify({
+            latitude: lat,
+            longitude: lon,
+            accuracy: acc
+          }));
+        },
+        (error) => {
+          btn.disabled = false;
+          btn.textContent = '📍 Share My Real Location';
+
+          const messages = {
+            1: '❌ Location access denied. Please allow location in your browser/phone settings and try again.',
+            2: '❌ GPS signal unavailable. Go outside or move to a better signal area.',
+            3: '❌ Timed out getting GPS signal. Please try again.',
+          };
+          setStatus(messages[error.code] || '❌ Unknown error. Please try again.', 'error');
+        },
+        {
+          enableHighAccuracy: true, // forces hardware GPS, not cell-tower/WiFi approximation
+          timeout: 15000,
+          maximumAge: 0            // never use a cached location
+        }
+      );
+    }
+  </script>
+</body>
+</html>
