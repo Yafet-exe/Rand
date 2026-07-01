@@ -651,7 +651,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         update_user_field(user_id, "onboard_step", STEP_LOOKING)
         await query.edit_message_text(f"Got it — you are *{gender}*.", parse_mode="Markdown")
         await context.bot.send_message(
-            chat_id=query.message.chat_id,
+            chat_id=user_id,
             text="-> Who are you looking for?",
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton("👩 Female", callback_data="onb_looking_Female"),
@@ -666,8 +666,6 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         update_user_field(user_id, "looking_for", looking)
         update_user_field(user_id, "onboard_step", STEP_LOCATION)
         await query.edit_message_text(f"Got it — looking for *{looking}*.", parse_mode="Markdown")
-        # Use context.bot.send_message directly — more reliable than query.message.reply_text
-        # after an inline button interaction
         text = (
             "-> Last step! Share your verified GPS location so we can match you with people nearby.\n\n"
             "📍 *How to share:*\n"
@@ -676,8 +674,10 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "3️⃣ Allow location access when prompted — your real GPS location will be sent securely\n\n"
             "⚠️ Only GPS-verified locations are accepted. Manual map pins are a Premium feature."
         )
+        # Use user_id directly as chat_id — in private chats user_id == chat_id
+        # This is more reliable than query.message.chat_id after a callback interaction
         await context.bot.send_message(
-            chat_id=query.message.chat_id,
+            chat_id=user_id,
             text=text,
             parse_mode="Markdown",
             reply_markup=location_request_keyboard()
