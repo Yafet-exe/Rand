@@ -277,8 +277,10 @@ async def prompt_for_step(update_or_query, step, context: ContextTypes.DEFAULT_T
             InlineKeyboardButton("👩 Female", callback_data="onb_looking_Female"),
             InlineKeyboardButton("👨 Male",   callback_data="onb_looking_Male"),
         ]])
+        # Always send a new message for this step — editing in place causes
+        # button taps to silently fail on some Telegram clients
         if edit:
-            await update_or_query.edit_message_text(text, reply_markup=kb)
+            await update_or_query.message.reply_text(text, reply_markup=kb)
         else:
             await update_or_query.message.reply_text(text, reply_markup=kb)
 
