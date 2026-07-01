@@ -649,7 +649,15 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         gender = data.replace("onb_gender_", "")
         update_user_field(user_id, "gender", gender)
         update_user_field(user_id, "onboard_step", STEP_LOOKING)
-        await prompt_for_step(query, STEP_LOOKING, context, edit=True)
+        await query.edit_message_text(f"Got it — you are *{gender}*.", parse_mode="Markdown")
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text="-> Who are you looking for?",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("👩 Female", callback_data="onb_looking_Female"),
+                InlineKeyboardButton("👨 Male",   callback_data="onb_looking_Male"),
+            ]])
+        )
         return
 
     # ── Onboarding: step 2 — looking for ──
@@ -658,7 +666,22 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         update_user_field(user_id, "looking_for", looking)
         update_user_field(user_id, "onboard_step", STEP_LOCATION)
         await query.edit_message_text(f"Got it — looking for *{looking}*.", parse_mode="Markdown")
-        await prompt_for_step(query, STEP_LOCATION, context)
+        # Use context.bot.send_message directly — more reliable than query.message.reply_text
+        # after an inline button interaction
+        text = (
+            "-> Last step! Share your verified GPS location so we can match you with people nearby.\n\n"
+            "📍 *How to share:*\n"
+            "1️⃣ Make sure Location Services are *ON* in your phone settings\n"
+            "2️⃣ Tap the *📍 Share My Real Location* button below\n"
+            "3️⃣ Allow location access when prompted — your real GPS location will be sent securely\n\n"
+            "⚠️ Only GPS-verified locations are accepted. Manual map pins are a Premium feature."
+        )
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=text,
+            parse_mode="Markdown",
+            reply_markup=location_request_keyboard()
+        )
         return
 
     # ── Setup menu ──
