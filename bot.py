@@ -666,20 +666,22 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         update_user_field(user_id, "looking_for", looking)
         update_user_field(user_id, "onboard_step", STEP_LOCATION)
         await query.edit_message_text(f"Got it — looking for *{looking}*.", parse_mode="Markdown")
-        text = (
-            "-> Last step! Share your verified GPS location so we can match you with people nearby.\n\n"
-            "📍 *How to share:*\n"
-            "1️⃣ Make sure Location Services are *ON* in your phone settings\n"
-            "2️⃣ Tap the *📍 Share My Real Location* button below\n"
-            "3️⃣ Allow location access when prompted — your real GPS location will be sent securely\n\n"
-            "⚠️ Only GPS-verified locations are accepted. Manual map pins are a Premium feature."
-        )
-        # Use user_id directly as chat_id — in private chats user_id == chat_id
-        # This is more reliable than query.message.chat_id after a callback interaction
+        # Send instructions as plain text first
         await context.bot.send_message(
             chat_id=user_id,
-            text=text,
-            parse_mode="Markdown",
+            text=(
+                "-> Last step! Share your verified GPS location so we can match you with people nearby.\n\n"
+                "📍 How to share:\n"
+                "1️⃣ Make sure Location Services are ON in your phone settings\n"
+                "2️⃣ Tap the Share My Real Location button below\n"
+                "3️⃣ Allow location access when prompted\n\n"
+                "⚠️ Only GPS-verified locations are accepted."
+            )
+        )
+        # Send the WebApp button as a separate message
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="Tap the button below to share your location 👇",
             reply_markup=location_request_keyboard()
         )
         return
