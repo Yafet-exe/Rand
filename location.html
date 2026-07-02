@@ -60,6 +60,11 @@
       font-size: 14px;
       color: var(--tg-theme-hint-color, #aaa);
       min-height: 40px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      text-align: left;
+      max-width: 300px;
+      width: 100%;
     }
 
     .error { color: #ff4444 !important; }
@@ -122,57 +127,71 @@
     tg.ready();
     tg.expand();
 
+    // Detect platform for tailored instructions
+    const isIOS     = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const isAndroid = /Android/i.test(navigator.userAgent);
+
+    const instructions = isIOS
+      ? "1. Close this\n2. Go to Settings → Privacy & Security → Location Services → ON\n3. Then Settings → Telegram → Location → While Using\n4. Come back and tap the button"
+      : isAndroid
+      ? "1. Swipe down from the top of your screen\n2. Tap the Location icon to turn it ON\n3. Come back and tap the button again"
+      : "Please enable Location Services in your phone settings, then tap the button again.";
+
     function setStatus(msg, cls = '') {
       const el = document.getElementById('status');
-      el.textContent = msg;
+      el.innerHTML = msg;
       el.className = cls;
+    }
+
+    function showRetry() {
+      document.getElementById('btn').style.display = 'block';
+      document.getElementById('btn').disabled = false;
+      document.getElementById('btn').textContent = '🔄 Try Again';
     }
 
     function getLocation() {
       const btn = document.getElementById('btn');
 
       if (!navigator.geolocation) {
-        setStatus('❌ Geolocation is not supported by your browser.', 'error');
+        setStatus('❌ Your browser does not support location sharing.', 'error');
         return;
       }
 
       btn.disabled = true;
       btn.textContent = '⏳ Getting your location...';
-      setStatus('Waiting for GPS signal...');
+      setStatus('📡 Searching for GPS signal...');
 
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const lat = position.coords.latitude;
           const lon = position.coords.longitude;
-          const acc = position.coords.accuracy; // always present from browser GPS API
+          const acc = position.coords.accuracy;
 
           setStatus(`✅ Location found! Accuracy: ~${Math.round(acc)}m`, 'success');
           btn.textContent = '✅ Sending...';
 
-          // Send data back to the bot via Telegram's WebApp channel.
-          // This arrives as update.message.web_app_data — a separate, unforgeable
-          // update type that can only come from a WebApp button tap.
-          tg.sendData(JSON.stringify({
-            latitude: lat,
-            longitude: lon,
-            accuracy: acc
-          }));
+          tg.sendData(JSON.stringify({ latitude: lat, longitude: lon, accuracy: acc }));
         },
         (error) => {
-          btn.disabled = false;
-          btn.textContent = '📍 Share My Real Location';
-
-          const messages = {
-            1: '❌ Location access denied. Please allow location in your browser/phone settings and try again.',
-            2: '❌ GPS signal unavailable. Go outside or move to a better signal area.',
-            3: '❌ Timed out getting GPS signal. Please try again.',
-          };
-          setStatus(messages[error.code] || '❌ Unknown error. Please try again.', 'error');
+          let msg = '';
+          if (error.code === 1) {
+            // Permission denied — location is off or blocked
+            msg = `❌ Location access was denied.\n\n📋 How to fix:\n${instructions}`;
+          } else if (error.code === 2) {
+            msg = '❌ Could not get your GPS position.\n\nMake sure you are not in airplane mode and try again.';
+          } else if (error.code === 3) {
+            msg = '❌ GPS timed out. Move to an open area with better signal and try again.';
+          } else {
+            msg = '❌ Unknown error. Please try again.';
+          }
+          // Replace newlines with <br> for HTML display
+          setStatus(msg.replace(/\n/g, '<br>'), 'error');
+          showRetry();
         },
         {
-          enableHighAccuracy: true, // forces hardware GPS, not cell-tower/WiFi approximation
+          enableHighAccuracy: true,
           timeout: 15000,
-          maximumAge: 0            // never use a cached location
+          maximumAge: 0
         }
       );
     }
