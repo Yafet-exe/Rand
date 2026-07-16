@@ -1,0 +1,19 @@
+# Database
+randtalk.db
+
+# Environment files — NEVER commit these
+.env
+.env.local
+.env.production
+*.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Secrets
+secrets.txt
+config.ini
