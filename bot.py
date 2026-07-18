@@ -485,7 +485,8 @@ async def begin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Rand Talk: Looking for a stranger for you 🤔")
         await update.message.reply_text(
             f"Chat lacks *females*! Invite friends and earn bonuses for faster matching!\n\n{ref_link}",
-            parse_mode="Markdown"
+            parse_mode="Markdown",
+            link_preview_options={"is_disabled": True}
         )
 
 async def end_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -573,7 +574,8 @@ async def referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Earn *3 bonuses* for every female you invite and *1 bonus* for each male.\n\n"
         f"⭐ Your current bonuses: {u['bonuses']}",
         parse_mode="Markdown",
-        reply_markup=main_menu_keyboard()
+        reply_markup=main_menu_keyboard(),
+        link_preview_options={"is_disabled": True}
     )
 
 async def report_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
