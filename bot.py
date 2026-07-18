@@ -475,7 +475,8 @@ async def begin(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pass
     else:
         add_to_queue(user_id, db_u["bonuses"])
-        ref_link = f"https://t.me/Rando_talk_bot?start={user_id}"
+        bot_info = await context.bot.get_me()
+        ref_link = f"https://t.me/{bot_info.username}?start={user_id}"
         logger.info(f"Referral link generated for user {user_id}: {ref_link}")
         await update.message.reply_text(
             f"You are looking for a partner who is: *{db_u['looking_for']}*",
@@ -484,8 +485,7 @@ async def begin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Rand Talk: Looking for a stranger for you 🤔")
         await update.message.reply_text(
             f"Chat lacks *females*! Invite friends and earn bonuses for faster matching!\n\n{ref_link}",
-            parse_mode="Markdown",
-            link_preview_options={"is_disabled": True}
+            parse_mode="Markdown"
         )
 
 async def end_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -564,7 +564,8 @@ async def referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await require_onboarding(update, context):
         return
     user_id  = update.effective_user.id
-    link     = f"https://t.me/Rando_talk_bot?start={user_id}"
+    bot_info = await context.bot.get_me()
+    link     = f"https://t.me/{bot_info.username}?start={user_id}"
     logger.info(f"Referral link for user {user_id}: {link}")
     u        = get_user(user_id)
     await update.message.reply_text(
@@ -572,8 +573,7 @@ async def referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Earn *3 bonuses* for every female you invite and *1 bonus* for each male.\n\n"
         f"⭐ Your current bonuses: {u['bonuses']}",
         parse_mode="Markdown",
-        reply_markup=main_menu_keyboard(),
-        link_preview_options={"is_disabled": True}
+        reply_markup=main_menu_keyboard()
     )
 
 async def report_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
