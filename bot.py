@@ -282,10 +282,16 @@ def reverse_geocode_city(lat, lon):
         city    = (addr.get("city") or addr.get("town") or addr.get("village")
                    or addr.get("municipality") or addr.get("county") or "Unknown")
         country = addr.get("country", "")
+        # Store city+country internally for matching, but only show country to user
         return f"{city}, {country}" if country else city
     except Exception as e:
         logger.warning(f"Geocode failed: {e}")
         return "Unknown"
+
+def display_location(city_str):
+    """Show only the country part to the user, keep full string for matching."""
+    parts = city_str.split(", ")
+    return parts[-1] if len(parts) > 1 else city_str
 
 
 # ── KEYBOARDS ─────────────────────────────────────────────────────────────────
@@ -346,8 +352,9 @@ async def send_location_prompt(bot, chat_id):
             "match you with people nearby.\n\n"
             "📍 How to share:\n"
             "1️⃣ Make sure Location Services are ON in your phone settings\n"
-            "2️⃣ Tap the button below\n"
-            "3️⃣ Allow location access when prompted\n\n"
+            "2️⃣ Tap the [::] button to the left of the message box\n"
+            "3️⃣ Tap Location → Share My Location\n"
+            "   OR tap the 📍 Share My Real Location button below\n\n"
             "⚠️ Only GPS-verified locations are accepted."
         ),
         reply_markup=location_keyboard()
@@ -470,6 +477,7 @@ async def begin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_to_queue(user_id, db_u["bonuses"])
         bot_info = await context.bot.get_me()
         ref_link = f"https://t.me/{bot_info.username}?start={user_id}"
+        logger.info(f"Referral link generated for user {user_id}: {ref_link}")
         await update.message.reply_text(
             f"You are looking for a partner who is: *{db_u['looking_for']}*",
             parse_mode="Markdown", reply_markup=main_menu_keyboard()
@@ -516,7 +524,7 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"👤 *Your Profile*\n\n"
         f"👤 Gender: {u['gender']}\n"
         f"❤️ Looking For: {u['looking_for']}\n"
-        f"📍 City: {u['city'] or 'Not set'}\n"
+        f"📍 City: {display_location(u['city']) if u['city'] else 'Not set'}\n"
         f"🔍 Search Scope: {u['search_scope']}\n"
         f"⭐ Bonuses: {u['bonuses']}",
         parse_mode="Markdown", reply_markup=main_menu_keyboard()
@@ -558,12 +566,14 @@ async def referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id  = update.effective_user.id
     bot_info = await context.bot.get_me()
     link     = f"https://t.me/{bot_info.username}?start={user_id}"
+    logger.info(f"Referral link for user {user_id}: {link}")
     u        = get_user(user_id)
     await update.message.reply_text(
         f"🔗 *Your Referral Link:*\n{link}\n\n"
         f"Earn *3 bonuses* for every female you invite and *1 bonus* for each male.\n\n"
         f"⭐ Your current bonuses: {u['bonuses']}",
-        parse_mode="Markdown", reply_markup=main_menu_keyboard()
+        parse_mode="Markdown",
+        reply_markup=main_menu_keyboard()
     )
 
 async def report_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -778,13 +788,13 @@ async def handle_webapp_location(update: Update, context: ContextTypes.DEFAULT_T
     if db_u and db_u["onboard_step"] != STEP_DONE:
         update_user_field(user_id, "onboard_step", STEP_DONE)
         await update.message.reply_text(
-            f"✅ Location verified: *{city}*\n\n"
+            f"✅ Location verified: *{display_location(city)}*\n\n"
             f"🎉 Profile complete! Use the menu below or /begin to find a chat partner.",
             parse_mode="Markdown", reply_markup=main_menu_keyboard()
         )
     else:
         await update.message.reply_text(
-            f"✅ Location updated: *{city}*",
+            f"✅ Location updated: *{display_location(city)}*",
             parse_mode="Markdown", reply_markup=main_menu_keyboard()
         )
 
