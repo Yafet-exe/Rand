@@ -475,8 +475,7 @@ async def begin(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pass
     else:
         add_to_queue(user_id, db_u["bonuses"])
-        BOT_USERNAME = os.environ.get("BOT_USERNAME", "Rando_talk_bot")
-        ref_link = f"https://t.me/{BOT_USERNAME}?start={user_id}"
+        ref_link = f"https://t.me/Rando_talk_bot?start={user_id}"
         logger.info(f"Referral link generated for user {user_id}: {ref_link}")
         await update.message.reply_text(
             f"You are looking for a partner who is: *{db_u['looking_for']}*",
@@ -565,8 +564,7 @@ async def referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await require_onboarding(update, context):
         return
     user_id  = update.effective_user.id
-    BOT_USERNAME = os.environ.get("BOT_USERNAME", "Rando_talk_bot")
-    link     = f"https://t.me/{BOT_USERNAME}?start={user_id}"
+    link     = f"https://t.me/Rando_talk_bot?start={user_id}"
     logger.info(f"Referral link for user {user_id}: {link}")
     u        = get_user(user_id)
     await update.message.reply_text(
