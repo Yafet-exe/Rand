@@ -476,7 +476,11 @@ async def begin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         add_to_queue(user_id, db_u["bonuses"])
         bot_info = await context.bot.get_me()
-        ref_link = f"https://t.me/{bot_info.username}?start={user_id}"
+        
+        # ESCAPE UNDERSCORES SO MARKDOWN PARSER DOESN'T BREAK URL
+        safe_username = bot_info.username.replace("_", "\\_")
+        ref_link = f"https://t.me/{safe_username}?start={user_id}"
+        
         logger.info(f"Referral link generated for user {user_id}: {ref_link}")
         await update.message.reply_text(
             f"You are looking for a partner who is: *{db_u['looking_for']}*",
@@ -565,7 +569,11 @@ async def referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     user_id  = update.effective_user.id
     bot_info = await context.bot.get_me()
-    link     = f"https://t.me/{bot_info.username}?start={user_id}"
+    
+    # ESCAPE UNDERSCORES SO MARKDOWN PARSER DOESN'T BREAK URL
+    safe_username = bot_info.username.replace("_", "\\_")
+    link     = f"https://t.me/{safe_username}?start={user_id}"
+    
     logger.info(f"Referral link for user {user_id}: {link}")
     u        = get_user(user_id)
     await update.message.reply_text(
@@ -817,107 +825,87 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     data    = query.data
 
-    if is_banned(user_id):
-        await query.edit_message_text("🚫 Your account has been suspended.")
-        return
+    if data.startswith("onb_"):
+        parts = data.split("_")
+        step = parts[1]
+        val = parts[2]
+        
+        if step == "gender":
+            update_user_field(user_id, "gender", val)
+            update_user_field(user_id, "onboard_step", STEP_LOOKING)
+            await query.edit_message_text(f"Gender set to {val}.")
+            await send_looking_prompt(context.bot, user_id)
+            
+        elif step == "looking":
+            update_user_field(user_id, "looking_for", val)
+            update_user_field(user_id, "onboard_step", STEP_LOCATION)
+            await query.edit_message_text(f"Looking for set to {val}.")
+            await send_location_prompt(context.bot, user_id)
 
-    if data.startswith("onb_gender_"):
-        gender = data.replace("onb_gender_", "")
-        update_user_field(user_id, "gender", gender)
-        update_user_field(user_id, "onboard_step", STEP_LOOKING)
-        await query.edit_message_text(f"Got it — you are *{gender}*.", parse_mode="Markdown")
-        await send_looking_prompt(context.bot, user_id)
-        return
+    elif data.startswith("setup_"):
+        action = data.split("_")[1]
+        if action == "close":
+            await query.edit_message_text("Setup menu closed.")
+        elif action == "gender":
+            u = get_user(user_id)
+            new_g = "Male" if u["gender"] == "Female" else "Female"
+            update_user_field(user_id, "gender", new_g)
+            await query.edit_message_text(f"Gender toggled to {new_g}.")
+        elif action == "looking":
+            u = get_user(user_id)
+            new_l = "Male" if u["looking_for"] == "Female" else "Female"
+            update_user_field(user_id, "looking_for", new_l)
+            await query.edit_message_text(f"Looking for toggled to {new_l}.")
+        elif action == "scope":
+            u = get_user(user_id)
+            new_s = "Global" if u["search_scope"] == "Same City" else "Same City"
+            update_user_field(user_id, "search_scope", new_s)
+            await query.edit_message_text(f"Search scope toggled to {new_s}.")
+        elif action == "location":
+            await query.message.reply_text(
+                "Please share your verified location to update your profile:",
+                reply_markup=location_keyboard()
+            )
 
-    if data.startswith("onb_looking_"):
-        looking = data.replace("onb_looking_", "")
-        update_user_field(user_id, "looking_for", looking)
-        update_user_field(user_id, "onboard_step", STEP_LOCATION)
-        await query.edit_message_text(f"Got it — looking for *{looking}*.", parse_mode="Markdown")
-        await send_location_prompt(context.bot, user_id)
-        return
-
-    if data == "setup_scope":
-        btns = [[InlineKeyboardButton(s, callback_data=f"set_scope_{s}")] for s in ["Worldwide", "Same City"]]
-        btns.append([InlineKeyboardButton("⬅️ Back", callback_data="setup_back")])
-        await query.edit_message_text("🔍 Choose search scope:", reply_markup=InlineKeyboardMarkup(btns))
-    elif data == "setup_gender":
-        btns = [[InlineKeyboardButton(f"{'👩' if g=='Female' else '👨'} {g}", callback_data=f"set_gender_{g}")] for g in GENDERS]
-        btns.append([InlineKeyboardButton("⬅️ Back", callback_data="setup_back")])
-        await query.edit_message_text("👤 Choose your gender:", reply_markup=InlineKeyboardMarkup(btns))
-    elif data == "setup_looking":
-        btns = [[InlineKeyboardButton(f"{'👩' if g=='Female' else '👨'} {g}", callback_data=f"set_looking_{g}")] for g in LOOKING_FOR]
-        btns.append([InlineKeyboardButton("⬅️ Back", callback_data="setup_back")])
-        await query.edit_message_text("❤️ Who are you looking for?", reply_markup=InlineKeyboardMarkup(btns))
-    elif data == "setup_location":
-        await query.edit_message_text("Tap the button below to update your location.")
-        await send_location_prompt(context.bot, user_id)
-    elif data == "setup_back":
-        await query.edit_message_text("What do you like to configure?", reply_markup=setup_inline_keyboard())
-    elif data == "setup_close":
-        await query.edit_message_text("✅ Setup closed.")
-    elif data.startswith("set_gender_"):
-        val = data.replace("set_gender_", "")
-        update_user_field(user_id, "gender", val)
-        await query.edit_message_text(f"✅ Gender set to *{val}*", parse_mode="Markdown", reply_markup=setup_inline_keyboard())
-    elif data.startswith("set_looking_"):
-        val = data.replace("set_looking_", "")
-        update_user_field(user_id, "looking_for", val)
-        await query.edit_message_text(f"✅ Looking for *{val}*", parse_mode="Markdown", reply_markup=setup_inline_keyboard())
-    elif data.startswith("set_scope_"):
-        val = data.replace("set_scope_", "")
-        update_user_field(user_id, "search_scope", val)
-        await query.edit_message_text(f"✅ Search scope: *{val}*", parse_mode="Markdown", reply_markup=setup_inline_keyboard())
-
-
-# ── BOT COMMANDS ──────────────────────────────────────────────────────────────
-
-async def post_init(app):
-    await app.bot.set_my_commands([
-        BotCommand("begin",             "Start looking for a chat partner"),
-        BotCommand("end",               "End the current chat"),
-        BotCommand("setup",             "Configure your profile"),
-        BotCommand("profile",           "Show your current profile"),
-        BotCommand("exchange_username", "Exchange usernames with your partner"),
-        BotCommand("referral",          "Get your referral link"),
-        BotCommand("report",            "Report your current chat partner"),
-        BotCommand("help",              "Show help"),
-    ])
-
-
-# ── MAIN ──────────────────────────────────────────────────────────────────────
+# ── MAIN INITIALIZATION ────────────────────────────────────────────────────────
 
 def main():
     init_db()
-    app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
+    
+    app = Application.builder().token(BOT_TOKEN).build()
 
-    app.add_handler(CommandHandler("start",             start))
-    app.add_handler(CommandHandler("begin",             begin))
-    app.add_handler(CommandHandler("end",               end_chat))
-    app.add_handler(CommandHandler("setup",             setup))
-    app.add_handler(CommandHandler("profile",           profile))
+    # Commands
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("begin", begin))
+    app.add_handler(CommandHandler("end", end_chat))
+    app.add_handler(CommandHandler("setup", setup))
+    app.add_handler(CommandHandler("profile", profile))
+    app.add_handler(CommandHandler("referral", referral))
     app.add_handler(CommandHandler("exchange_username", exchange_username))
-    app.add_handler(CommandHandler("referral",          referral))
-    app.add_handler(CommandHandler("report",            report_user))
-    app.add_handler(CommandHandler("help",              help_command))
+    app.add_handler(CommandHandler("report", report_user))
+    app.add_handler(CommandHandler("help", help_command))
 
     # Admin commands
-    app.add_handler(CommandHandler("ban",       admin_ban))
-    app.add_handler(CommandHandler("unban",     admin_unban))
-    app.add_handler(CommandHandler("stats",     admin_stats))
+    app.add_handler(CommandHandler("ban", admin_ban))
+    app.add_handler(CommandHandler("unban", admin_unban))
+    app.add_handler(CommandHandler("stats", admin_stats))
     app.add_handler(CommandHandler("broadcast", admin_broadcast))
 
+    # Callbacks and WebApp Data
     app.add_handler(CallbackQueryHandler(callback_handler))
     app.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, handle_webapp_location))
     app.add_handler(MessageHandler(filters.LOCATION, handle_location_fallback))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+    
+    # Media relay (stickers, photos, voice, video, etc.)
     app.add_handler(MessageHandler(
-        (filters.PHOTO | filters.Sticker.ALL | filters.VOICE | filters.VIDEO |
-         filters.Document.ALL | filters.AUDIO | filters.VIDEO_NOTE) & ~filters.COMMAND,
+        filters.Sticker.ALL | filters.PHOTO | filters.VOICE | filters.VIDEO | filters.Document.ALL | filters.AUDIO | filters.VIDEO_NOTE,
         relay_media
     ))
+    
+    # Text relay and menu routing
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
-    logger.info("Bot starting...")
+    logger.info("Bot is starting up and polling for updates...")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
